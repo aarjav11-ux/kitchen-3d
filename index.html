@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kitchen 3D Model</title>
+<style>
+:root{--bg:#f4f2ec;--fg:#2c2c2a;--muted:#6b6a64;--btn:#ffffff;--line:#d6d2c6}
+@media (prefers-color-scheme:dark){:root{--bg:#1c1c1a;--fg:#eceae4;--muted:#a8a69e;--btn:#2a2a27;--line:#44433e}}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif;padding:16px}
+h1{font-size:20px;margin:0 0 4px}
+p{margin:0 0 12px;color:var(--muted)}
+.bar{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 10px}
+button{background:var(--btn);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:7px 12px;font:inherit;cursor:pointer}
+#stage{width:100%;height:calc(100vh - 160px);min-height:420px;border-radius:12px;overflow:hidden;background:#ece8df;touch-action:none}
+</style>
+</head>
+<body>
+<h1>Kitchen 3D model</h1>
+<p>Drag to rotate, pinch or scroll to zoom. Dimensions in mm.</p>
+<div class="bar">
+<button id="vWash">Washer corner</button>
+<button id="vWin">Overview</button>
+<button id="vPlan">Plan</button>
+<button id="vFront">Drawers</button>
+<button id="vUp">Uppers</button>
+<button id="vLab">Hide labels</button>
+<button id="vDim">Hide dimensions</button>
+</div>
+<div id="stage"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+const stage=document.getElementById('stage');
+const W=()=>stage.clientWidth,H=()=>stage.clientHeight;
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(W(),H());renderer.setClearColor(0xece8df);
+stage.appendChild(renderer.domElement);
+const scene=new THREE.Scene();
+const cam=new THREE.PerspectiveCamera(50,W()/H(),0.03,50);
+const ctr=new THREE.OrbitControls(cam,renderer.domElement);ctr.enableDamping=true;
+scene.add(new THREE.HemisphereLight(0xfff6e8,0xb8a890,0.85));
+const dl=new THREE.DirectionalLight(0xfff2dc,0.5);dl.position.set(3,4,2.5);scene.add(dl);
+const dl2=new THREE.DirectionalLight(0xffffff,0.3);dl2.position.set(-2,2,3);scene.add(dl2);
+const cache={};const M=c=>cache[c]||(cache[c]=new THREE.MeshStandardMaterial({color:c,roughness:0.7}));
+const MS=c=>new THREE.MeshStandardMaterial({color:c,roughness:0.3,metalness:0.65});
+const TR=(c,o)=>new THREE.MeshStandardMaterial({color:c,transparent:true,opacity:o,depthWrite:false,roughness:0.1});
+function wpCanvas(){const c=document.createElement('canvas');c.width=c.height=128;const g=c.getContext('2d');g.fillStyle='#e7e9d3';g.fillRect(0,0,128,128);const m=(x,y)=>{g.strokeStyle='#a7b36f';g.lineWidth=3;g.beginPath();g.arc(x,y,17,0,7);g.stroke();g.strokeStyle='#7f95b8';g.lineWidth=2;g.beginPath();g.arc(x,y,10,0,7);g.stroke();g.fillStyle='#8d9d58';g.beginPath();g.arc(x,y,4,0,7);g.fill();};m(32,32);m(96,96);return c;}
+const WPC=wpCanvas();
+function wall(w,h){const tx=new THREE.CanvasTexture(WPC);tx.wrapS=tx.wrapT=THREE.RepeatWrapping;tx.repeat.set(w/0.24,h/0.24);return new THREE.MeshStandardMaterial({map:tx,roughness:0.9});}
+function floorMat(){const c=document.createElement('canvas');c.width=c.height=256;const g=c.getContext('2d');const cols=['#8a5a35','#94623b','#7f5230','#9a683f'];for(let i=0;i<4;i++){g.fillStyle=cols[i];g.fillRect(0,i*64,256,64);g.fillStyle='#5e3b20';g.fillRect(0,i*64,256,2);g.fillRect((i*97)%256,i*64,2,64);}const tx=new THREE.CanvasTexture(c);tx.wrapS=tx.wrapT=THREE.RepeatWrapping;tx.repeat.set(2.6/0.7,1.8/0.7);return new THREE.MeshStandardMaterial({map:tx,roughness:0.8});}
+const mat={carc:M(0xf3f0e8),inner:M(0xebe5d8),shut:M(0xf8f6f0),top:M(0x9b5b2f),steel:MS(0xc4c7ca),brass:MS(0xc29a52),glass:M(0x161616),burner:M(0x555555),wood:M(0xa47c55),dark:M(0x232323),knob:MS(0x3b2f2a),blind:M(0x9ea347),ceramic:M(0xf4f2ec),black:M(0x2a2a2a),lpg:M(0xc0392b),wm:M(0xe9eaec),wmg:M(0x8e9399),ghost:TR(0xf6f2ea,0.14),pane:TR(0xcfe4f2,0.3)};
+const OX=-1.2825,ZO=1.774,t=0.018;
+function box(x0,x1,y0,y1,z0,z1,m){const b=new THREE.Mesh(new THREE.BoxGeometry(x1-x0,y1-y0,z1-z0),m);b.position.set(OX+(x0+x1)/2,(y0+y1)/2,(z0+z1)/2);scene.add(b);return b;}
+function cyl(r1,r2,h,x,y,z,m,ax){const c=new THREE.Mesh(new THREE.CylinderGeometry(r1,r2,h,20),m);c.position.set(OX+x,y,z);if(ax==='x')c.rotation.z=Math.PI/2;if(ax==='z')c.rotation.x=Math.PI/2;scene.add(c);return c;}
+const C=(r,h,x,y,z,m)=>cyl(r,r,h,x,y+h/2,z,m);
+const labels=new THREE.Group(),dims=new THREE.Group();scene.add(labels);scene.add(dims);
+function spr(txt,x,y,z,grp,st){const c=document.createElement('canvas');const g=c.getContext('2d');g.font='500 44px sans-serif';const w=Math.ceil(g.measureText(txt).width)+36;c.width=w;c.height=72;const S=[['rgba(255,255,255,0.94)','#5f5e5a','#2c2c2a',2],['#ffffff','#185FA5','#0C447C',4],['#E1F5EE','#0F6E56','#085041',4]][st];g.fillStyle=S[0];g.fillRect(0,0,w,72);g.strokeStyle=S[1];g.lineWidth=S[3];g.strokeRect(2,2,w-4,68);g.fillStyle=S[2];g.font='500 44px sans-serif';g.textBaseline='middle';g.fillText(txt,18,38);const s=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),depthTest:false}));s.scale.set(0.042*w/72,0.042,1);s.position.set(OX+x,y,z);s.renderOrder=st?7:6;grp.add(s);}
+const lab=(t,x,y,z)=>spr(t,x,y,z,labels,0);
+const lm=new THREE.LineBasicMaterial({color:0x185FA5,depthTest:false}),dm=new THREE.MeshBasicMaterial({color:0x185FA5,depthTest:false});
+function dim(a,b,txt){const l=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(OX+a[0],a[1],a[2]),new THREE.Vector3(OX+b[0],b[1],b[2])]),lm);l.renderOrder=5;dims.add(l);[a,b].forEach(p=>{const s=new THREE.Mesh(new THREE.SphereGeometry(0.009,8,6),dm);s.position.set(OX+p[0],p[1],p[2]);s.renderOrder=5;dims.add(s);});spr(txt,(a[0]+b[0])/2,(a[1]+b[1])/2,(a[2]+b[2])/2,dims,1);}
+function jar(x,y,z,r,h,col,lid){C(r,h,x,y,z,M(col));C(r*1.08,0.016,x,y+h,z,M(lid||0xd9d4c7));}
+function bottle(x,y,z,r,h,col,cap){C(r,h*0.72,x,y,z,M(col));cyl(r*0.4,r*0.9,h*0.2,x,y+h*0.82,z,M(col));C(r*0.42,h*0.08,x,y+h*0.92,z,M(cap||0xb23a3a));}
+function dabba(x,y,z,r,h){C(r,h,x,y,z,mat.steel);C(r*1.04,0.01,x,y+h,z,mat.steel);}
+function sbowls(x,y,z,r,n){for(let i=0;i<n;i++)cyl(r,r*0.65,r*0.55,x,y+r*0.28+i*r*0.22,z,mat.steel);}
+function pkt(x,y,z,w,h,d,col){box(x-w/2,x+w/2,y,y+h,z-d/2,z+d/2,M(col));}
+box(0,2.585,-0.01,0,0,ZO,floorMat());
+box(-0.05,2.585,0,2.62,-0.02,0,wall(2.635,2.62));
+box(-0.05,2.585,0,2.62,ZO,ZO+0.02,mat.ghost);
+const WX0=2.565,WX1=2.585,wz0=0.75,wz1=1.5,wy0=1.05,wy1=2.1;
+box(WX0,WX1,0,wy0,0,ZO,wall(ZO,wy0));box(WX0,WX1,wy1,2.62,0,ZO,wall(ZO,0.52));
+box(WX0,WX1,wy0,wy1,0,wz0,wall(wz0,1.05));box(WX0,WX1,wy0,wy1,wz1,ZO,wall(0.27,1.05));
+box(WX0+0.005,WX1-0.005,wy0,wy1,wz0,wz1,mat.pane);
+const fx0=WX0-0.03,fx1=WX0;
+box(fx0,fx1,wy1-0.05,wy1,wz0-0.04,wz1+0.04,mat.shut);box(fx0-0.1,fx1,wy0-0.03,wy0+0.01,wz0-0.06,wz1+0.06,mat.shut);
+box(fx0,fx1,wy0,wy1,wz0-0.04,wz0+0.02,mat.shut);box(fx0,fx1,wy0,wy1,wz1-0.02,wz1+0.04,mat.shut);
+[1.0,1.25].forEach(z=>box(fx0+0.01,fx1,wy0,wy1,z-0.01,z+0.01,mat.shut));
+[[1.3,0.01],[1.575,0.02],[1.85,0.01]].forEach(([y,h])=>box(fx0+0.01,fx1,y-h,y+h,wz0,wz1,mat.shut));
+box(WX0-0.09,WX0-0.035,1.86,2.14,wz0-0.03,wz1+0.03,mat.blind);
+box(0.02,0.78,0,2.1,ZO-0.06,ZO-0.025,mat.wood);
+function cab(x0,x1,y0,y1,d,rows,opp){const za=opp?ZO-d:0,zb=opp?ZO:d;box(x0,x0+t,y0,y1,za,zb,mat.carc);box(x1-t,x1,y0,y1,za,zb,mat.carc);box(x0,x1,y0,y0+t,za,zb,mat.carc);box(x0,x1,y1-t,y1,za,zb,mat.carc);if(opp)box(x0+t,x1-t,y0,y1,ZO-0.01,ZO,mat.inner);else box(x0+t,x1-t,y0,y1,0,0.01,mat.inner);const h=(y1-y0)/rows;for(let i=1;i<rows;i++)box(x0+t,x1-t,y0+h*i-t/2,y0+h*i+t/2,za+0.01,zb-0.01,mat.carc);}
+function door(x0,x1,y0,y1,zb,s){const z1=zb+s*t,lo=Math.min(zb,z1),hi=Math.max(zb,z1);box(x0+0.003,x1-0.003,y0+0.003,y1-0.003,lo,hi,mat.shut);const fw=Math.min(0.05,(x1-x0)*0.16,(y1-y0)*0.22);const za=s>0?hi:lo-0.007,zz=s>0?hi+0.007:lo;box(x0+0.003,x1-0.003,y1-0.003-fw,y1-0.003,za,zz,mat.shut);box(x0+0.003,x1-0.003,y0+0.003,y0+0.003+fw,za,zz,mat.shut);box(x0+0.003,x0+0.003+fw,y0+0.003,y1-0.003,za,zz,mat.shut);box(x1-0.003-fw,x1-0.003,y0+0.003,y1-0.003,za,zz,mat.shut);const k=new THREE.Mesh(new THREE.SphereGeometry(0.012,10,8),mat.knob);k.position.set(OX+(x0+x1)/2,y1-fw-0.025,s>0?zz+0.011:za-0.011);scene.add(k);}
+function swing(xh,y0,y1,zf,w,s,left){const xa=left?xh-t-0.003:xh+0.003;box(xa,xa+t,y0+0.003,y1-0.003,Math.min(zf,zf+s*w),Math.max(zf,zf+s*w),mat.shut);}
+function drawer(x0,x1,y0,y1,pull,d,fill){const zf=d+pull,zb=pull+0.02;const yb=y0+0.015,ht=y1-y0-0.05;box(x0+0.025,x1-0.025,yb,yb+0.012,zb,zf,mat.inner);box(x0+0.025,x0+0.037,yb,yb+ht,zb,zf,mat.carc);box(x1-0.037,x1-0.025,yb,yb+ht,zb,zf,mat.carc);box(x0+0.025,x1-0.025,yb,yb+ht,zb,zb+0.012,mat.carc);door(x0,x1,y0,y1,zf,1);fill(x0+0.045,x1-0.045,yb+0.012,zb+0.025,zf-0.025);}
+const B0=0.1,B1=0.66,BD=0.54,U0=1.5,U1=2.55,UD=0.33;
+box(0,2.565,B1,0.80,0,0.58,mat.top);box(0,2.565,0.8,0.9,0,0.02,mat.top);
+box(0.8,1.3,0.80,0.806,0.08,0.5,mat.glass);
+[[0.92,0.2],[1.18,0.2],[1.05,0.38]].forEach(([x,z])=>C(0.06,0.012,x,0.806,z,mat.burner));
+box(2.05,2.45,0.795,0.803,0.1,0.48,mat.ceramic);box(2.09,2.41,0.62,0.797,0.13,0.45,mat.ceramic);
+cyl(0.012,0.012,0.3,2.25,0.95,0.06,mat.brass);box(2.24,2.26,1.08,1.1,0.06,0.2,mat.brass);
+const GX=0.4;
+box(0,t,0,B1,0,BD,mat.carc);box(GX-t,GX,0,B1,0,BD,mat.carc);box(t,GX-t,0,B1,0,0.01,mat.inner);
+swing(0,0.03,B1,BD,0.4,1,true);
+C(0.16,0.5,0.2,0,0.27,mat.lpg);cyl(0.16,0.1,0.06,0.2,0.53,0.27,mat.lpg);C(0.09,0.03,0.2,0.56,0.27,mat.lpg);C(0.025,0.04,0.2,0.59,0.27,mat.steel);box(0.19,0.25,0.6,0.64,0.24,0.3,M(0xe2b43a));
+lab('Gas cylinder',0.2,0.45,0.62);
+cab(GX,0.75,B0,B1,BD,1);
+const L1=0.38,L2=0.54;
+drawer(GX,0.75,L2,B1,0.08,BD,(a,b,y,z0,z1)=>{box(a+0.075,a+0.08,y,y+0.05,z0,z1-0.06,mat.inner);box(a+0.155,a+0.16,y,y+0.05,z0,z1-0.06,mat.inner);for(let j=0;j<4;j++)box(a+0.008+j*0.016,a+0.016+j*0.016,y,y+0.01,z0+0.02,z0+0.2,mat.steel);for(let j=0;j<4;j++)box(a+0.088+j*0.016,a+0.096+j*0.016,y,y+0.01,z0+0.02,z0+0.21,mat.steel);box(a+0.17,a+0.185,y,y+0.012,z0+0.02,z0+0.3,mat.steel);cyl(0.022,0.008,0.18,b-0.03,y+0.02,z0+0.15,mat.steel,'z');box(a+0.01,a+0.06,y,y+0.012,z0+0.24,z0+0.36,M(0xe07fa5));cyl(0.018,0.018,0.26,(a+b)/2,y+0.02,z1-0.02,mat.wood,'x');});
+lab('Cutlery organizer',0.575,B1+0.03,BD+0.12);
+drawer(GX,0.75,L1,L2,0.16,BD,(a,b,y,z0,z1)=>{const lids=[0xc8473f,0xe2b43a,0x2f6b4f,0xffffff,0x232323,0xd27a3c];for(let i=0;i<3;i++)for(let j=0;j<8;j++)jar(a+0.028+i*0.052,y,z0+0.025+j*0.05,0.022,0.085,0xf6efe0,lids[(i+j)%6]);box(b-0.08,b-0.005,y,y+0.045,z0,z0+0.33,M(0x2c4f7c));box(b-0.08,b-0.005,y+0.045,y+0.09,z0,z0+0.33,M(0xd9d4c7));});
+lab('Spice jars, wraps, foil',0.575,L2-0.03,BD+0.24);
+drawer(GX,0.75,B0,L1,0.26,BD,(a,b,y,z0,z1)=>{C(0.055,0.17,a+0.06,y,z0+0.07,mat.steel);C(0.05,0.15,a+0.19,y,z0+0.07,mat.steel);C(0.06,0.2,a+0.06,y,z0+0.22,TR(0xdfeef6,0.55));box(a+0.15,a+0.23,y,y+0.2,z0+0.17,z0+0.27,MS(0xb9bcbf));});
+lab('Mixer jars, blades, grater',0.575,L1-0.03,BD+0.34);
+cab(0.75,1.35,B0,B1,BD,1);
+const HM=0.44;
+drawer(0.75,1.35,HM,B1,0.1,BD,(a,b,y,z0,z1)=>{box(a+0.01,a+0.015,y,y+0.15,z0+0.02,z0+0.3,mat.steel);box(a+0.13,a+0.135,y,y+0.15,z0+0.02,z0+0.3,mat.steel);for(let i=0;i<4;i++)cyl(0.075,0.075,0.008,a+0.03+i*0.03,y+0.08,z0+0.16,mat.steel,'x');C(0.075,0.09,a+0.23,y,z0+0.09,mat.steel);cyl(0.13,0.06,0.08,b-0.13,y+0.04,z0+0.14,mat.black);sbowls(b-0.09,y,z0+0.34,0.07,3);});
+lab('Lids, saucepans, kadhai, bowls',1.05,B1+0.03,BD+0.14);
+drawer(0.75,1.35,B0,HM,0.24,BD,(a,b,y,z0,z1)=>{C(0.1,0.17,a+0.1,y,z0+0.11,mat.steel);box(a+0.03,a+0.2,y+0.17,y+0.185,z0+0.1,z0+0.12,mat.black);C(0.085,0.15,a+0.3,y,z0+0.11,mat.steel);C(0.008,0.22,b-0.08,y,z0+0.11,mat.steel);for(let i=0;i<4;i++)C(0.07,0.01,b-0.08,y+0.03+i*0.05,z0+0.11,mat.steel);C(0.12,0.18,a+0.15,y,z0+0.33,mat.brass);box(b-0.03,b-0.012,y,y+0.25,z0+0.22,z1-0.02,mat.wood);});
+lab('Cookers, idli stand, pots, board',1.05,HM-0.03,BD+0.38);
+box(1.35,1.95,B0,B1,0,BD,mat.carc);door(1.35,1.95,B0,B1,BD,1);lab('Dishwasher',1.65,0.4,BD+0.06);
+cab(1.95,2.55,B0,B1,BD,1);box(1.952,2.548,0.48,0.66,BD,BD+t+0.008,mat.top);
+swing(1.95,B0,0.48,BD,0.3,1,true);swing(2.55,B0,0.48,BD,0.3,1,false);
+cyl(0.11,0.1,0.28,2.08,B0+t+0.14,0.3,M(0x5a7fa8));bottle(2.4,B0+t,0.32,0.035,0.2,0x3f8fd2,0xffffff);
+lab('Bin, cleaners',2.25,0.42,BD+0.08);
+box(2.55,2.565,B0,B1,0,BD+t,mat.carc);
+const uh4=(U1-U0)/4,uh3=(U1-U0)/3,zc=0.17,zl=UD+0.06;
+cab(0,0.3,U0,U1,UD,4);swing(0,U0,U1,UD,0.3,1,true);
+let y=U0+t;[0.06,0.13,0.2,0.26].forEach((x,i)=>{C(0.03,0.11,x,y,zc-0.04,M(i%2?0xc8473f:0xf2efe6));});lab('Catch & grocery jars',0.15,y+0.17,zl);
+y=U0+uh4+t/2;for(let i=0;i<5;i++)jar(0.05+i*0.05,y,zc,0.022,0.1,[0xc8473f,0xe2b43a,0x9a5a2e,0x6f8f3a,0xd27a3c][i],0x232323);lab('Glass spice jars',0.15,y+0.16,zl);
+y=U0+uh4*2+t/2;pkt(0.08,y,zc,0.07,0.1,0.1,0xe2b43a);pkt(0.22,y,zc,0.06,0.12,0.1,0x2c4f7c);lab('Small items',0.15,y+0.17,zl);
+cab(0.3,0.75,U0,U1,UD,4);swing(0.3,U0,U1,UD,0.22,1,true);swing(0.75,U0,U1,UD,0.22,1,false);
+y=U0+t;bottle(0.36,y,zc,0.04,0.22,0xe8c45a,0xb23a3a);bottle(0.45,y,zc,0.04,0.22,0xd9a93a,0x2f6b4f);bottle(0.54,y,zc,0.045,0.23,0xf0d56a,0x2c4f7c);bottle(0.63,y,zc,0.035,0.2,0x8a5a2b,0x232323);lab('Oils incl. Tata cold pressed',0.525,y+0.24,zl);
+y=U0+uh4+t/2;[0.38,0.5,0.62].forEach(x=>{for(let i=0;i<2;i++){C(0.05,0.08,x,y+i*0.095,zc,TR(0xf2efe6,0.85));C(0.052,0.015,x,y+i*0.095+0.08,zc,M(0x2c6bd1));}});lab('Blue-topped containers',0.525,y+0.22,zl);
+y=U0+uh4*2+t/2;pkt(0.37,y,zc,0.08,0.18,0.12,0xe2b43a);pkt(0.47,y,zc,0.08,0.16,0.12,0xc8473f);pkt(0.57,y,zc,0.08,0.17,0.12,0xffffff);lab('Food packets, white pouch',0.525,y+0.21,zl);
+cab(0.75,1.35,U0,U1,UD,3);swing(0.75,U0,U1,UD,0.3,1,true);swing(1.35,U0,U1,UD,0.3,1,false);
+y=U0+t;[0.87,1.05,1.23].forEach(x=>dabba(x,y,zc,0.08,0.2));y=U0+uh3+t/2;[0.9,1.1].forEach(x=>dabba(x,y,zc,0.085,0.22));lab('Large steel dabbas',1.05,y+0.27,zl);
+cab(1.35,1.95,U0,U1,UD,3);swing(1.35,U0,U1,UD,0.3,1,true);swing(1.95,U0,U1,UD,0.3,1,false);
+y=U0+t;C(0.15,0.06,1.53,y,zc,mat.steel);sbowls(1.75,y,zc-0.06,0.05,6);sbowls(1.86,y,zc+0.06,0.07,3);lab('5 thalis, 9 steel bowls',1.65,y+0.2,zl);
+y=U0+uh3+t/2;for(let i=0;i<8;i++)cyl(0.035,0.03,0.11,1.45+(i%4)*0.08,y+0.055,zc+(i<4?-0.05:0.06),mat.steel);lab('Steel tumblers',1.65,y+0.18,zl);
+/* U5: dish rack cabinet */
+cab(1.95,2.25,U0,U1,UD,3);swing(1.95,U0,U1,UD,0.3,1,true);
+y=U0+t;box(1.98,2.22,y,y+0.006,0.04,0.3,mat.steel);for(let i=0;i<4;i++)cyl(0.08,0.08,0.008,2.0+i*0.04,y+0.085,zc,mat.steel,'x');cyl(0.05,0.04,0.06,2.18,y+0.035,zc+0.05,mat.steel);lab('U5 Dish rack',2.1,y+0.22,zl);
+/* U6: purifier niche */
+box(2.25,2.25+t,U0,U1,0,UD,mat.carc);box(2.55-t,2.55,U0,U1,0,UD,mat.carc);box(2.25,2.55,U1-t,U1,0,UD,mat.carc);box(2.25,2.55,U0,U0+t,0,UD,mat.carc);box(2.25+t,2.55-t,U0,U1,0,0.01,mat.inner);box(2.25+t,2.55-t,U0+0.6-t/2,U0+0.6+t/2,0.01,UD-0.01,mat.carc);
+swing(2.55,U0+0.6,U1,UD,0.3,1,false);
+box(2.29,2.51,U0+t+0.02,U0+0.47,0.04,0.29,mat.black);box(2.37,2.43,U0+0.33,U0+0.36,0.29,0.295,M(0x3f8fd2));
+lab('U6 Water purifier',2.4,U0+0.52,zl);
+const P0=0.1,P1=1.03,PD=0.3,Z3=ZO-PD,pl=Z3-0.08;
+box(1.235,1.945,0,P0,Z3+0.05,ZO,mat.inner);
+cab(1.215,1.665,P0,P1,PD,3,true);swing(1.215,P0,P1,Z3,0.3,-1,true);box(1.215,1.665,P1,1.05,Z3-0.025,ZO,mat.top);
+cab(1.665,1.965,P0,P1,PD,3,true);swing(1.665,P0,P1,Z3,0.28,-1,true);box(1.665,1.965,P1,1.05,Z3-0.025,ZO,mat.top);
+lab('P1 pantry',1.44,0.6,pl);lab('P2',1.815,0.6,pl);
+box(1.3,1.47,1.05,1.42,ZO-0.22,ZO-0.05,M(0xf2efe6));lab('Mixer grinder',1.385,1.6,pl);
+const MX0=1.995,MX1=2.535,MZ1=ZO-0.05,MZ0=MZ1-0.52,MH=0.93;
+box(MX0,MX1,0.02,MH-0.02,MZ0,MZ1,mat.wm);box(MX0,MX1,0,0.06,MZ0+0.02,MZ1-0.02,mat.wmg);
+box(MX0+0.01,MX1-0.01,MH-0.03,MH,MZ0+0.01,MZ1-0.14,M(0xd5d8dc));box(MX0+0.06,MX1-0.06,MH-0.026,MH-0.006,MZ0+0.05,MZ1-0.18,TR(0x6f7d8c,0.8));
+box(MX0,MX1,MH-0.04,MH+0.06,MZ1-0.14,MZ1,mat.wmg);box(MX0+0.1,MX0+0.3,MH+0.01,MH+0.05,MZ1-0.145,MZ1-0.14,M(0x2a2a2a));
+box(2.2,2.24,1.12,1.16,ZO-0.03,ZO,mat.steel);box(2.36,2.42,1.12,1.2,ZO-0.012,ZO,M(0xffffff));
+spr('Haier HWM65-AE (top load)',2.265,1.15,MZ0-0.05,labels,2);
+dim([0,2.59,0.37],[2.565,2.59,0.37],'Run 2565');
+dim([-0.03,0,0.62],[-0.03,0.8,0.62],'Worktop 800');
+dim([0.6,0.95,0.58],[0.6,0.95,ZO],'Passage 1194');
+dim([1.44,0,Z3-0.05],[1.44,1.05,Z3-0.05],'Pantry 1050');
+dim([MX0,MH+0.1,MZ0],[MX1,MH+0.1,MZ0],'Washer 540 W');
+dim([MX0-0.03,MH+0.1,MZ0],[MX0-0.03,MH+0.1,MZ1],'520 D');
+dim([MX0-0.03,0,MZ0-0.02],[MX0-0.03,MH,MZ0-0.02],'930 H');
+dim([2.2,0.45,0.58],[2.2,0.45,MZ0],'624 passage');
+const views={wash:[[0.05,1.65,0.25],[0.98,0.6,1.45]],win:[[-1.15,1.75,1.3],[0.9,0.95,0.6]],plan:[[0.4,5.0,0.95],[0.4,0,0.9]],front:[[-0.6,1.3,1.6],[-0.6,0.4,0.5]],up:[[-0.2,1.5,1.55],[0.2,2.0,0.15]]};
+function go(v){cam.position.set(...views[v][0]);ctr.target.set(...views[v][1]);ctr.update();}
+go('win');
+[['vWash','wash'],['vWin','win'],['vPlan','plan'],['vFront','front'],['vUp','up']].forEach(([id,v])=>document.getElementById(id).onclick=()=>go(v));
+const lb=document.getElementById('vLab');lb.onclick=()=>{labels.visible=!labels.visible;lb.textContent=labels.visible?'Hide labels':'Show labels';};
+const db=document.getElementById('vDim');db.onclick=()=>{dims.visible=!dims.visible;db.textContent=dims.visible?'Hide dimensions':'Show dimensions';};
+function loop(){requestAnimationFrame(loop);ctr.update();renderer.render(scene,cam);}loop();
+new ResizeObserver(()=>{renderer.setSize(W(),H());cam.aspect=W()/H();cam.updateProjectionMatrix();}).observe(stage);
+</script>
+</body>
+</html>
