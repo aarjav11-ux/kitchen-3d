@@ -123,7 +123,7 @@ cab(0.3,0.75,U0,U1,UD,4);swing(0.3,U0,U1,UD,0.22,1,true);swing(0.75,U0,U1,UD,0.2
 y=U0+t;bottle(0.36,y,zc,0.04,0.22,0xe8c45a,0xb23a3a);bottle(0.45,y,zc,0.04,0.22,0xd9a93a,0x2f6b4f);bottle(0.54,y,zc,0.045,0.23,0xf0d56a,0x2c4f7c);bottle(0.63,y,zc,0.035,0.2,0x8a5a2b,0x232323);lab('Oils incl. Tata cold pressed',0.525,y+0.24,zl);
 y=U0+uh4+t/2;[0.38,0.5,0.62].forEach(x=>{for(let i=0;i<2;i++){C(0.05,0.08,x,y+i*0.095,zc,TR(0xf2efe6,0.85));C(0.052,0.015,x,y+i*0.095+0.08,zc,M(0x2c6bd1));}});lab('Blue-topped containers',0.525,y+0.22,zl);
 y=U0+uh4*2+t/2;pkt(0.37,y,zc,0.08,0.18,0.12,0xe2b43a);pkt(0.47,y,zc,0.08,0.16,0.12,0xc8473f);pkt(0.57,y,zc,0.08,0.17,0.12,0xffffff);lab('Food packets, white pouch',0.525,y+0.21,zl);
-cab(0.75,1.35,U0,U1,UD,3);swing(0.75,U0,U1,UD,0.3,1,true);swing(1.35,U0,U1,UD,0.3,1,false);
+cab(0.75,1.35,U0,2.25,UD,2);swing(0.75,U0,2.25,UD,0.3,1,true);swing(1.35,U0,2.25,UD,0.3,1,false);
 y=U0+t;[0.87,1.05,1.23].forEach(x=>dabba(x,y,zc,0.08,0.2));y=U0+uh3+t/2;[0.9,1.1].forEach(x=>dabba(x,y,zc,0.085,0.22));lab('Large steel dabbas',1.05,y+0.27,zl);
 cab(1.35,1.95,U0,U1,UD,3);swing(1.35,U0,U1,UD,0.3,1,true);swing(1.95,U0,U1,UD,0.3,1,false);
 y=U0+t;C(0.15,0.06,1.53,y,zc,mat.steel);sbowls(1.75,y,zc-0.06,0.05,6);sbowls(1.86,y,zc+0.06,0.07,3);lab('5 thalis, 9 steel bowls',1.65,y+0.2,zl);
@@ -156,6 +156,10 @@ dim([MX0,MH+0.1,MZ0],[MX1,MH+0.1,MZ0],'Washer 540 W');
 dim([MX0-0.03,MH+0.1,MZ0],[MX0-0.03,MH+0.1,MZ1],'520 D');
 dim([MX0-0.03,0,MZ0-0.02],[MX0-0.03,MH,MZ0-0.02],'930 H');
 dim([2.2,0.45,0.58],[2.2,0.45,MZ0],'624 passage');
+
+function exfan(x,y,z,r,ax){const g=new THREE.Group();const ring=new THREE.Mesh(new THREE.TorusGeometry(r,0.02,8,32),M(0xf2f2f0));g.add(ring);const hub=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.04,16),M(0x9a9a96));hub.rotation.x=Math.PI/2;g.add(hub);for(let i=0;i<5;i++){const bl=new THREE.Mesh(new THREE.BoxGeometry(0.05,r*0.85,0.006),M(0xc9ccd0));bl.position.set(Math.sin(i*1.2566)*r*0.45,Math.cos(i*1.2566)*r*0.45,0);bl.rotation.z=-i*1.2566;g.add(bl);}const back=new THREE.Mesh(new THREE.CircleGeometry(r,32),M(0x3a3a3a));back.position.z=-0.012;g.add(back);g.position.set(OX+x,y,z);if(ax==='x')g.rotation.y=-Math.PI/2;scene.add(g);return g;}
+exfan(1.05,2.43,0.025,0.15);lab('Exhaust fan above hob',1.05,2.65,0.25);
+exfan(WX0-0.02,1.83,1.125,0.14,'x');lab('Window exhaust fan',2.4,2.05,1.125);
 const views={wash:[[0.05,1.65,0.25],[0.98,0.6,1.45]],win:[[-1.15,1.75,1.3],[0.9,0.95,0.6]],plan:[[0.4,5.0,0.95],[0.4,0,0.9]],front:[[-0.6,1.3,1.6],[-0.6,0.4,0.5]],up:[[-0.2,1.5,1.55],[0.2,2.0,0.15]]};
 function go(v){cam.position.set(...views[v][0]);ctr.target.set(...views[v][1]);ctr.update();}
 go('win');
